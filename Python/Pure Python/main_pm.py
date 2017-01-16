@@ -23,32 +23,24 @@ light_source = np.array([-2., 5., 3.])  # location of the light source
 l_specular = np.array([0.5, 0.5, 0.5])  # color of specular highlights
 l_diffuse = np.array([0.5, 0.5, 0.5])  # color of diffuse light
 
-gamma = 1
+gamma = 1/1.6
 
 ref_coefficient = 0.04  # reflection coefficient for Schlick's approximation, index of refraction is 1.5
 glass = 1.52
 air = 1.0001
 
-photon_num = 100
+photon_num = 4000
 photon_map_dict = {}
 max_depth = 3  # maximum recursion depth
-exposure = 40
+exposure = 10
 find_radius = 1  # distance within photons are gathered
 
-caustics_photon_num = 100
+caustics_photon_num = 4000
 find_r_caustics = 0.1
 find_n_caustics = 20
 caustics_dict = {}
 
 # scene objects in a dictionary, the keys are not important
-'''
-scene = {
-    1: scene_objects_pm.Sphere(1.5, np.array([0., 4, 2.]), np.array([1., 0., 0.]), 1, True),
-    2: scene_objects_pm.Plane(np.array([0., 5., 0.]), np.array([0., -1., 0.]), np.array([0.5, 0.5, 1.]), 8, False),
-
-}
-'''
-
 scene = {
     1: scene_objects_pm.Sphere(1.5, np.array([-1.5, 4, 0.]), np.array([0., 1., 0.]), 2, True),
     2: scene_objects_pm.Sphere(1.5, np.array([2., 6, 0.]), np.array([1., 0., 0.]), 1, False),
@@ -359,7 +351,6 @@ def ray_trace(o, l, depth):
 
         # compute the components of the reflection model
         ambient = body.a_reflect * ambient_light
-        '''
 
         # caustics
         photon_data = gather_caustics(point, photon_map_mp.getTreeCaustics())
@@ -416,13 +407,13 @@ def ray_trace(o, l, depth):
 
             else:
                 ambient = np.array([0, 0, 0])
-        '''
+
         specular = body.specular * max(0, (np.dot(ref_vec, -l))) ** body.alpha
         diffuse = body.diffuse * max(0, np.dot(normal, (light_ray-point)))
 
         # because light is additive, we add all the components together
-        color = (diffuse + specular + 0.1)*body.color
-        # color = (ambient + specular * 0.4) * body.color + caustics
+        # color = (diffuse + specular + 0.1)*body.color
+        color = (ambient + specular * 0.4) * body.color + caustics
 
         if body.reflectiveness > 0 and depth < 2:
             reflection_amount = ref_coefficient + (1 - ref_coefficient) * (1 - np.dot(normal, -l))**5
@@ -526,18 +517,18 @@ def init_thread(args):
     photon_map_mp = args
 
 if __name__ == '__main__':  # needed for multiprocessing
-    # p = shoot_photons()
-    # kdtc = shoot_caustics()
-    # photon_map_mp = PhotonMap(p, photon_map_dict, caustics_dict, kdtc)
+    p = shoot_photons()
+    kdtc = shoot_caustics()
+    photon_map_mp = PhotonMap(p, photon_map_dict, caustics_dict, kdtc)
 
     mp.freeze_support()  # fixes some bug with windows, not necessary on linux TT.TT
     # create four threads on two cores for parallel computing
-    # pool = mp.Pool(processes=4, initializer=init_thread, initargs=(photon_map_mp,))
+    pool = mp.Pool(processes=4, initializer=init_thread, initargs=(photon_map_mp,))
     pool = mp.Pool(processes=4)
 
     # initiate python and window
     pygame.init()
-    screen_w, screen_h = 400, 300
+    screen_w, screen_h = 100, 65
     screen = pygame.display.set_mode((screen_w, screen_h))
 
     clock = pygame.time.Clock()
@@ -546,7 +537,10 @@ if __name__ == '__main__':  # needed for multiprocessing
     screen.fill((0, 0, 0))  # fill screen with black
     draw_scene()  # draw each pixel with the ray tracing method
     print('done', clock.tick() / 1000, 'seconds')
-    pygame.image.save(screen, 'traced_img.png')
+
+    import time
+
+    pygame.image.save(screen, 'output_' + time.strftime("%d-%m-%Y-%H-%M-%S") + ".png")
     # game loop
     while True:
         for event in pygame.event.get():
