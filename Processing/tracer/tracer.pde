@@ -10,6 +10,15 @@ Object obj;
 PVector light;
 PVector light_color;
 
+int photons = 1000;
+Photon[] photon_map;
+
+boolean done_rendering = false;
+
+///////////////////////////////////////////////////
+//  SETUP THE RENDERE AND CREATE THE PHOTON MAP  //
+///////////////////////////////////////////////////
+
 void setup() {
   size(500, 500, JAVA2D);
   frameRate(9999);
@@ -22,39 +31,64 @@ void setup() {
   img_size = 1.0f;
   light = new PVector(-2, 3.5f, 6);
   light_color = new PVector(0.95f, 0.95f, 0.95f);
+
+  println("Starting to make the photon map");
+  photon_map = create_photon_map();
+  println("Photon map complete");
 }
+
+///////////////////////////////////////////////////
+//  RENDER IMAGE PER LINE OR DISPLAY PHOTON MAP  //
+///////////////////////////////////////////////////
 
 void draw() {
   int x = column * (500 / resx);
-  for (int i = 0; i < resy; i++) {
-    int y = i * (500 / resy);
+  if (!done_rendering) {
+    for (int i = 0; i < resy; i++) {
+      int y = i * (500 / resy);
 
-    PVector dir = new PVector((x-250)*(img_size/500), -(y-250)*(img_size/500), 1.0);
-    PVector origin = new PVector(0.0f, 0.5f, -1.5f);
+      PVector dir = new PVector((x-250)*(img_size/500), -(y-250)*(img_size/500), 1.0);
+      PVector origin = new PVector(0.0f, 0.5f, -1.5f);
 
-    dir = dir.normalize();
+      dir = dir.normalize();
 
-    Ray ray = new Ray(origin, dir);
-    float t = ray_trace(ray);
-    PVector rgb = new PVector(0, 0, 0);
-    PVector point = PVector.add(PVector.mult(dir, t), origin);
+      Ray ray = new Ray(origin, dir);
+      float t = ray_trace(ray);
+      PVector rgb = new PVector(0, 0, 0);
+      PVector point = PVector.add(PVector.mult(dir, t), origin);
 
-    rgb = colorize(point, ray);
+      rgb = colorize(point, ray);
 
-    rgb.set(pow(rgb.x, 1/gamma),
-            pow(rgb.y, 1/gamma),
-            pow(rgb.z, 1/gamma));
+      rgb.set(pow(rgb.x, 1/gamma), 
+        pow(rgb.y, 1/gamma), 
+        pow(rgb.z, 1/gamma));
 
-    rgb.mult(255);
+      rgb.mult(255);
 
-    stroke(rgb.x, rgb.y, rgb.z);
-    fill(rgb.x, rgb.y, rgb.z);
-    rect(x, y, 500/resx, 500/resy);
+      stroke(rgb.x, rgb.y, rgb.z);
+      fill(rgb.x, rgb.y, rgb.z);
+      rect(x, y, 500/resx, 500/resy);
+    }
   }
   column++;
   increase_res();
+
+  if (done_rendering) {
+    for (Photon p : photon_map) {
+      int dx = 250 + (int)(500 * p.r.s.x/p.r.s.z);
+      int dy = 250 + (int)(-500 * p.r.s.y/p.r.s.z);
+      if (dx > 0 && dx < 500 && dy > 0 && dy < 500) {
+
+        stroke(255*p.col.x, 255*p.col.y, 255*p.col.z);
+        point(dx, dy);
+      }
+    }
+  }
 }
 
+/////////////////////////
+// ASSISTING FUNCTIONS //
+/////////////////////////
 
 PVector reflect(PVector in, PVector normal) {
   float dot = PVector.dot(in, normal);
@@ -128,10 +162,9 @@ PVector colorize(PVector point, Ray ray) {
       spec = specular(normal, point, ray, p.mat.alpha) * p.mat.s;
       rgb = PVector.mult(p.mat.col, diff+amb+spec);
     } else {
-       amb = p.mat.a;
+      amb = p.mat.a;
       rgb = PVector.mult(p.mat.col, amb);
     }
-    
   }
   return rgb;
 }
@@ -174,6 +207,7 @@ void increase_res() {
     if (resx > 500) {
       resx = 500;
       resy = 500;
+      done_rendering = true;
     }
   }
 }
